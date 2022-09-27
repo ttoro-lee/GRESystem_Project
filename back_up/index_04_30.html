@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="echarts.js"></script>
+    <title>Talking-Potato</title>
+  </head>
+  <body>
+    <div id="main" style="width: 600px; height: 600px"></div>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+
+    <script>
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyC16VJp4DcDltMBP0wtYQDchPHkrMQiF-o",
+        authDomain: "talkingpotato-4615e.firebaseapp.com",
+        databaseURL: "https://talkingpotato-4615e-default-rtdb.firebaseio.com",
+        projectId: "talkingpotato-4615e",
+        storageBucket: "talkingpotato-4615e.appspot.com",
+        messagingSenderId: "823172786361",
+        appId: "1:823172786361:web:9eb1dfcdb0470dc9519368",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      var chart_data = [];
+
+      var power_list = firebase.database().ref("/").limitToLast(1200);
+
+      power_list.on("value", (snapshot) => {
+        const data = snapshot.val();
+
+        var count = 0;
+        var chartArray = [];
+        var watt_tmp = 0;
+        var watt_diff = 0;
+
+        chartArray.push(["Time", "Watt"]);
+        for (var key in data) {
+          if (data.hasOwnProperty(key)) {
+            //console.log("key/value", key, data[key]);
+            for (var obj in data[key]) {
+              if (obj == "Watt") {
+                if (watt_tmp == 0) {
+                  var watt = data[key][obj];
+                  watt_tmp = watt;
+                } else {
+                  var watt = data[key][obj];
+                  watt_diff = watt_tmp - watt;
+                  watt_tmp = watt;
+                }
+              }
+              if (obj == "time") {
+                var time = data[key][obj];
+                const time_arr = time.split(" ");
+                var sec = time_arr[1];
+              }
+            }
+            chartArray.push([sec, watt_diff]);
+            count++;
+          }
+        }
+        chart_data = chartArray.map((v) => v.slice());
+      });
+
+      setTimeout(function () {
+        console.log(chart_data);
+        // DOM을 준비하고 echart 객체를 만듭니다.
+        // DOM을 준비하고 echart 객체를 만듭니다.
+        var myChart = echarts.init(document.getElementById("main"));
+        //chart의 설정을 정합니다.
+        var option = {
+          title: {
+            text: "Watt 그래프",
+          },
+          tooltip: {
+            trigger: "axis",
+            axisPointer: {
+              type: "cross",
+              label: {
+                backgroundColor: "#283b56",
+              },
+            },
+          },
+          legend: {
+            data: ["Watt"],
+          },
+          dataZoom: {
+            show: false,
+            start: 0,
+            end: 100,
+          },
+          xAxis: [
+            {
+              type: "category",
+              boundaryGap: true,
+              data: (function () {
+                var now = new Date();
+                var res = [];
+                var len = 20;
+                while (len--) {
+                  // ********************* 수정 필요 ***********************************
+                  res.unshift(now.toLocaleTimeString().replace(/^\D*/, ""));
+                  now = new Date(now - 2000);
+                }
+                return res;
+              })(),
+            },
+          ],
+          yAxis: [
+            {
+              type: "value",
+              scale: true,
+              name: "Watt",
+              max: 30,
+              min: 0,
+              boundaryGap: [0.2, 0.2],
+              axisLabel: {
+                formatter: "{value}",
+              },
+            },
+          ],
+          series: [
+            {
+              name: "Watt",
+              type: "line",
+              lineStyle: {
+                color: "#2A265C", //line차트 색상 변경
+              },
+              smooth: true, //부드러운 line 표현
+              yAxisIndex: 0, //yAxis 1번째 사용
+              data: (function () {
+                var res = [];
+                var len = 0;
+                while (len < 20) {
+                  // ***************************** 수정 필요 ***************************************
+                  res.push(chart_data[len][1]); //랜덤 데이터 생성
+                  len++;
+                }
+                return res;
+              })(),
+            },
+          ],
+        };
+
+        // 위에서 설정한 속성을 차트에 반영합니다.
+        myChart.setOption(option);
+        var i = 20;
+
+        //데이터를 생성하고 삭제합니다.
+        // ***** 이곳을 for문으로 시간값과 watt값을 넣을 수 있을까요? *********************************************
+        setInterval(function () {
+          //x축에 실시간 데이터 생성
+          //var axisData = (new Date()).toLocaleTimeString().replace(/^\D*/, '');
+          var axisData = chart_data[i][0];
+          console.log(axisData);
+
+          var data0 = option.series[0].data; //Watt 데이터
+          console.log(data0);
+
+          //데이터의 가장 왼쪽 값을 제거
+          data0.shift();
+          //데이터의 가장 오른쪽 값을 추가
+          data0.push(Math.round(Math.random() * 15));
+          //x축에 시간 데이터 추가
+          option.xAxis[0].data.shift();
+          option.xAxis[0].data.push(axisData);
+
+          //차트에 반영
+          myChart.setOption(option);
+          i = i + 1;
+        }, 2100);
+
+        function wait(sec) {
+          let start = Date.now(),
+            now = start;
+          while (now - start < sec * 1000) {
+            now = Date.now();
+          }
+        }
+      }, 5000);
+    </script>
+  </body>
+</html>

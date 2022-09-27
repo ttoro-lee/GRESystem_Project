@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  
+  <div id="curve_chart" style="width: 1500px; height: 500px"></div>
+  
+  <script>
+  // Your web app's Firebase configuration
+	  const firebaseConfig = {
+		apiKey: "AIzaSyC16VJp4DcDltMBP0wtYQDchPHkrMQiF-o",
+		authDomain: "talkingpotato-4615e.firebaseapp.com",
+		databaseURL: "https://talkingpotato-4615e-default-rtdb.firebaseio.com",
+		projectId: "talkingpotato-4615e",
+		storageBucket: "talkingpotato-4615e.appspot.com",
+		messagingSenderId: "823172786361",
+		appId: "1:823172786361:web:9eb1dfcdb0470dc9519368"
+	  };
+
+	// Initialize Firebase
+	firebase.initializeApp(firebaseConfig)
+	
+	google.charts.load('current', {packages: ['corechart']});
+	google.charts.setOnLoadCallback(drawBasic);
+		
+	function PushSensor(value) {    
+
+		var postData = {
+
+			file:{
+				data: {
+					power: value
+				}
+			}
+
+		};
+
+		var newPostKey = firebase.database().ref().child('file').push().key;
+		var updates = {};
+		
+		updates['/' + newPostKey] = postData;
+		
+		var result=firebase.database().ref().update(updates);
+		console.log("pushed result", result);
+	}
+		
+		var power_list = firebase.database().ref('/');
+		power_list.on('value', (snapshot) => {
+		
+		const data = snapshot.val();
+		
+		var count = 0;
+		var chartArray = [];
+		
+		chartArray.push(['Time', 'Watt']);
+		for(var key in data){
+			if(data.hasOwnProperty(key)){
+				//console.log("key/value", key, data[key]);
+				for(var obj in data[key]){
+					if (obj == 'Watt'){
+						var watt = data[key][obj];
+					}
+					if (obj == 'time') {
+						var time = data[key][obj];
+					}
+				}
+				chartArray.push([time,watt]);
+				count++;
+			}
+			if(count == 20*60){
+				console.log("chartArray = ", chartArray);
+				drawBasic(chartArray);
+				count = 0;
+				chartArray = [];
+				chartArray.push(['Time', 'Watt']);
+			}
+		}
+		})
+		
+		function drawBasic(chartData) {
+	
+		var data = google.visualization.arrayToDataTable(chartData);
+		
+
+		var options = {
+			hAxis: {
+			title: 'Time'
+			},
+			vAxis: {
+			title: 'Power'
+			},
+			animation: {
+			duration: 1000,
+			easing: 'in'
+			}
+		};
+
+		var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+
+		chart.draw(data, options);
+    }
+	</script>
+  
+</body>
+</html>

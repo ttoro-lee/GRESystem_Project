@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/export-data.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+  
+	<figure class="highcharts-figure">
+		<div id="container"></div>
+		<p class="highcharts-description">
+		Chart showing data updating every second, with old data being removed.
+		</p>
+	</figure>
+ 
+  <script>
+  // Your web app's Firebase configuration
+	  const firebaseConfig = {
+		apiKey: "AIzaSyC16VJp4DcDltMBP0wtYQDchPHkrMQiF-o",
+		authDomain: "talkingpotato-4615e.firebaseapp.com",
+		databaseURL: "https://talkingpotato-4615e-default-rtdb.firebaseio.com",
+		projectId: "talkingpotato-4615e",
+		storageBucket: "talkingpotato-4615e.appspot.com",
+		messagingSenderId: "823172786361",
+		appId: "1:823172786361:web:9eb1dfcdb0470dc9519368"
+	  };
+
+	// Initialize Firebase
+	firebase.initializeApp(firebaseConfig)
+
+			Highcharts.chart('container', {
+			chart: {
+				type: 'spline',
+				animation: Highcharts.svg, // don't animate in old IE
+				marginRight: 10,
+				events: {
+					load: function () {
+
+						// set up the updating of the chart each second
+						var series = this.series[0];
+						setInterval(function () {
+							var x = (new Date()).getTime(), // current time
+								y = Math.random();
+							series.addPoint([x, y], true, true);
+						}, 1000);
+					}
+				}
+			},
+
+			time: {
+				useUTC: false
+			},
+
+			title: {
+				text: 'Live random data'
+			},
+
+			accessibility: {
+				announceNewData: {
+					enabled: true,
+					minAnnounceInterval: 15000,
+					announcementFormatter: function (allSeries, newSeries, newPoint) {
+						if (newPoint) {
+							return 'New point added. Value: ' + newPoint.y;
+						}
+						return false;
+					}
+				}
+			},
+
+			xAxis: {
+				type: 'datetime',
+				tickPixelInterval: 150
+			},
+
+			yAxis: {
+				title: {
+					text: 'Value'
+				},
+				plotLines: [{
+					value: 0,
+					width: 1,
+					color: '#808080'
+				}]
+			},
+
+			tooltip: {
+				headerFormat: '<b>{series.name}</b><br/>',
+				pointFormat: '{point.x:%Y-%m-%d %H:%M:%S}<br/>{point.y:.2f}'
+			},
+
+			legend: {
+				enabled: false
+			},
+
+			exporting: {
+				enabled: false
+			},
+
+			series: [{
+				name: 'Random data',
+				data: (function () {
+					// generate an array of random data
+					var data = [],
+						time = (new Date()).getTime(),
+						i;
+						power_list = firebase.database().ref('/');
+		
+						power_list.on('value', (snapshot) => {
+		
+						const data = snapshot.val();
+		
+						var count = 0;
+						var chartArray = [];
+		
+						chartArray.push(['Time', 'Watt']);
+						for(var key in data){
+							if(data.hasOwnProperty(key)){
+							//console.log("key/value", key, data[key]);
+								for(var obj in data[key]){
+									if (obj == 'Watt'){
+										var watt = data[key][obj];
+									}
+									if (obj == 'time') {
+										var time = data[key][obj];
+									}
+							}
+						}
+					})
+
+					for (i = -19; i <= 0; i += 1) {
+						data.push({
+							x: time + i * 1000,
+							y: Math.random()
+						});
+					}
+					return data;
+				}())
+			}]
+		});
+	</script>
+  
+</body>
+</html>
