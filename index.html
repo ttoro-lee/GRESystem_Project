@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="echarts.js"></script>
+    <title>Talking-Potato</title>
+  </head>
+  <body>
+    <div id="main" style="width: 1000px; height: 600px"></div>
+    <div style="position: fixed; top: 100px; right: 100px">
+      <button onclick="add_row()">Log Check</button>
+      <button onclick="delete_row()">Log Delete</button>
+      <style type="text/css">
+        .tg  {border-collapse:collapse;border-color:#9ABAD9;border-spacing:0;}
+        .tg td{background-color:#EBF5FF;border-color:#9ABAD9;border-style:solid;border-width:1px;color:#444;
+          font-family:Arial, sans-serif;font-size:14px;overflow:hidden;padding:10px 5px;word-break:normal;}
+        .tg th{background-color:#409cff;border-color:#9ABAD9;border-style:solid;border-width:1px;color:#fff;
+          font-family:Arial, sans-serif;font-size:14px;font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+        .tg .tg-baqh{text-align:center;vertical-align:top}
+        .tg .tg-0lax{text-align:left;vertical-align:top}
+        </style>
+        <table class="tg" style="table-layout: fixed; width: 636px">
+        <colgroup>
+        <col style="width: 202px">
+        <col style="width: 158px">
+        <col style="width: 127px">
+        <col style="width: 149px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="tg-baqh">Time</th>
+            <th class="tg-baqh">Watt</th>
+            <th class="tg-baqh">Diff-Watt</th>
+            <th class="tg-baqh">State</th>
+          </tr>
+        </thead>
+        <tbody id="my-tbody">
+          <tr>
+          </tr>
+        </tbody>
+        </table>
+      </table>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+
+    <script>
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyC16VJp4DcDltMBP0wtYQDchPHkrMQiF-o",
+        authDomain: "talkingpotato-4615e.firebaseapp.com",
+        databaseURL: "https://talkingpotato-4615e-default-rtdb.firebaseio.com",
+        projectId: "talkingpotato-4615e",
+        storageBucket: "talkingpotato-4615e.appspot.com",
+        messagingSenderId: "823172786361",
+        appId: "1:823172786361:web:9eb1dfcdb0470dc9519368",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      var RAW_data = [];
+      var chart_data = [];
+      var logArray = [];
+
+      var arr_max = -Number.MAX_VALUE;
+      var arr_min = Number.MAX_VALUE;
+      var get_itmes = 500;
+      var threshold = 0.60//896; // 하루 전체 차분 평균값
+      var last = 0; // 마지막 watt 값 저장
+
+      var power_list = firebase.database().ref("/").limitToLast(get_itmes);
+
+      power_list.on("value", (snapshot) => {
+        const data = snapshot.val();
+
+        var count = 0;
+        var chartArray = [];
+        var rawArray = [];
+
+        var watt_tmp = 0;
+        var watt_diff = 0;
+
+        //chartArray.push([,]);
+        for (var key in data) {
+          if (data.hasOwnProperty(key)) {
+            //console.log("key/value", key, data[key]);
+            for (var obj in data[key]) {
+              if (obj == "Watt") {
+                var watt = data[key][obj];
+
+                if (watt_tmp == null) {
+                  watt_tmp = watt;
+                } else {
+                  watt_diff = watt_tmp - watt;
+                  watt_tmp = watt;
+                  last = watt; // 가장 마지막만 저장됨
+                }
+              }
+              if (obj == "time") {
+                var time = data[key][obj];
+                const time_arr = time.split(" ");
+                var sec = time_arr[1];
+              }
+            }
+            chartArray.push([sec, watt_diff.toFixed(2)]);
+            rawArray.push([sec, watt.toFixed(2)]);
+            count++;
+          }
+        }
+        chart_data = chartArray.map((v) => v.slice());
+        RAW_data = rawArray.map((v) => v.slice());
+        //console.log(logArray);
+      });
+
+      var add_power_list = firebase.database().ref("/").limitToLast(1);
+
+      var addArray = []; // 추가적인 배열
+
+      add_power_list.on("child_added", (snapshot) => {
+        // 하나 추가
+        const add_data = snapshot.val();
+        //console.log("데이터 들어오는 거 확인 : ", add_data);
+        //console.log("watt : ", add_data["Watt"], "time : ", add_data["time"]);
+
+        var add_count = 0;
+
+        var add_watt = add_data["Watt"];
+        const add_time_arr = add_data["time"].split(" ");
+        var add_sec = add_time_arr[1];
+
+        addArray.push([add_sec, add_watt]);
+        add_count++;
+
+        //chartArray.push([,]);
+        // for (var add_key in add_data) {
+        //   if (add_data.hasOwnProperty(add_key)) {
+        //     console.log("key/value", key, data[key]);
+        //     for (var add_obj in add_data[add_key]) {
+        //       if (add_obj == "Watt") {
+        //         var add_watt = add_data[add_key][add_obj];
+        //       }
+        //       if (add_obj == "time") {
+        //         var add_time = add_data[add_key][add_obj];
+        //         const add_time_arr = add_time.split(" ");
+        //         var add_sec = add_time_arr[1];
+        //       }
+        //     }
+        //     addArray.push([add_sec, add_watt]);
+        //     if (addArray.length > 0) {
+        //       console.log("addArray : ", addArray);
+        //     }
+        //     add_count++;
+        //   }
+        // }
+      });
+
+      setTimeout(function () {
+        var visual_data_count = 490;
+
+        for(t = 0; t < chart_data.length; t++){
+          if (Math.abs(chart_data[t][1]) > threshold) {
+              logArray.push([chart_data[t][0], RAW_data[t][1], chart_data[t][1]]);
+            }
+        }
+
+        //console.log(chart_data);
+        // DOM을 준비하고 echart 객체를 만듭니다.
+        var myChart = echarts.init(document.getElementById("main"));
+
+        //chart의 설정을 정합니다.
+        var option = {
+          title: {
+            text: "Watt Graph",
+          },
+          tooltip: {
+            trigger: "axis",
+            axisPointer: {
+              type: "cross",
+              label: {
+                backgroundColor: "#283b56",
+              },
+            },
+          },
+          legend: {
+            data: ["Watt_diff", "RAW_Watt"],
+          },
+          dataZoom: {
+            show: false,
+            start: 0,
+            end: 100,
+          },
+          xAxis: [
+            {
+              type: "category",
+              boundaryGap: true,
+              data: (function () {
+                var res = [];
+                var len = 0;
+                while (len < visual_data_count) {
+                  // ********************* 수정 필요 ***********************************
+                  res.push(chart_data[len][0]); // 시간 데이터 저장
+                  len++;
+                }
+                return res;
+              })(),
+            },
+          ],
+          yAxis: [
+            {
+              type: "value",
+              scale: true,
+              name: "Watt",
+
+              // 그래프 y값 표시 범위
+              max: function (item) {
+                var diff = item.max - item.min;
+                if (diff == 0) {
+                  diff = 1;
+                }
+                return (item.max + diff * 0.2).toFixed(2);
+              },
+              min: function (item) {
+                var diff = item.max - item.min;
+                if (diff == 0) {
+                  diff = 1;
+                }
+                return (item.min - diff * 0.2).toFixed(2);
+              },
+              boundaryGap: [0.5, 0.5],
+              axisLabel: {
+                formatter: "{value}",
+              },
+            },
+          ],
+          series: [
+            {
+              name: "Watt_diff",
+              type: "line",
+              lineStyle: {
+                color: "#2A265C", //line차트 색상 변경
+              },
+              smooth: true, //부드러운 line 표현
+              yAxisIndex: 0, //yAxis 1번째 사용
+              data: (function () {
+                var res = [];
+                var len = 0;
+                while (len < visual_data_count) {
+                  // ***************************** 수정 필요 ***************************************
+                  res.push(chart_data[len][1]); // Watt 데이터 저장
+                  len++;
+                }
+                return res;
+              })(),
+            },
+            {
+              name: "RAW_Watt",
+              type: "line",
+              lineStyle: {
+                color: "#EE6666", //line차트 색상 변경
+              },
+              smooth: true, //부드러운 line 표현
+              yAxisIndex: 0, //yAxis 1번째 사용
+              data: (function () {
+                var res = [];
+                var len = 0;
+                while (len < visual_data_count) {
+                  // ***************************** 수정 필요 ***************************************
+                  res.push(RAW_data[len][1]); // Watt 데이터 저장
+                  len++;
+                }
+                return res;
+              })(),
+            },
+          ],
+        };
+
+        // 위에서 설정한 속성을 차트에 반영합니다.
+        myChart.setOption(option);
+        var i = visual_data_count;
+
+        //데이터를 생성하고 삭제합니다.
+        // ***** 이곳을 for문으로 시간값과 watt값을 넣을 수 있을까요? *********************************************
+        var time = setInterval(function () {
+          //x축에 실시간 데이터 생성
+          //var axisData = (new Date()).toLocaleTimeString().replace(/^\D*/, '');
+          if (get_itmes <= i) {
+            if (addArray.length > 0) {
+              var new_data = addArray.shift();
+              //console.log("새로운 데이터 : ", new_data);
+
+              var axisData = new_data[0];
+
+              var data0 = option.series[0].data; //Watt_diff 데이터
+              var data1 = option.series[1].data; //Watt_raw 데이터
+              //데이터의 가장 왼쪽 값을 제거
+              data0.shift();
+              data1.shift();
+
+              if (Math.abs((last - new_data[1]).toFixed(2)) > threshold) {
+                logArray.push(
+                  [new_data[0], new_data[1].toFixed(2)],
+                  (last - new_data[1]).toFixed(2)
+                );
+              }
+
+              //데이터의 가장 오른쪽 값을 추가
+              data0.push((last - new_data[1]).toFixed(2));
+              data1.push(new_data[1].toFixed(2));
+              //console.log("last data", last, "new_data", new_data[1]);
+              last = new_data[1].toFixed(2);
+
+              //console.log("새로운 데이터 추가 배열 : ", data0);
+              option.xAxis[0].data.shift();
+              option.xAxis[0].data.push(axisData);
+
+              //차트에 반영
+              myChart.setOption(option);
+              //console.log(i);
+            }
+          } else {
+            var axisData = chart_data[i][0];
+            //console.log(axisData);
+
+            var data0 = option.series[0].data; //Watt 데이터
+            var data1 = option.series[1].data; //Watt 데이터
+            //console.log(data0);
+
+            //데이터의 가장 왼쪽 값을 제거
+            data0.shift();
+            data1.shift();
+            //데이터의 가장 오른쪽 값을 추가
+            data0.push(chart_data[i][1]);
+            data1.push(RAW_data[i][1]);
+            //x축에 시간 데이터 추가
+            option.xAxis[0].data.shift();
+            option.xAxis[0].data.push(axisData);
+
+            //차트에 반영
+            myChart.setOption(option);
+          }
+          i = i + 1;
+        }, 2000);
+
+        function wait(sec) {
+          let start = Date.now(),
+            now = start;
+          while (now - start < sec * 1000) {
+            now = Date.now();
+          }
+        }
+      }, 5000);
+      // Creating and adding data to second row of the table
+      function add_row() {
+        if (logArray.length > 0) {
+          var my_tbody = document.getElementById("my-tbody");
+          // var row = my_tbody.insertRow(0); // 상단에 추가
+          var row = my_tbody.insertRow(my_tbody.rows.length); // 하단에 추가
+          var cell1 = row.insertCell(0);
+          var cell2 = row.insertCell(1);
+          var cell3 = row.insertCell(2);
+          var cell4 = row.insertCell(3);
+          var logdata = logArray.shift();
+          //console.log(logdata);
+          cell1.innerHTML = logdata[0];
+          cell2.innerHTML = logdata[1];
+          cell3.innerHTML = logdata[2];
+          cell4.innerHTML = "Warning";
+        }
+      }
+
+      function delete_row() {
+        var my_tbody = document.getElementById("my-tbody");
+        if (my_tbody.rows.length < 1) return;
+        my_tbody.deleteRow(0); // 상단부터 삭제
+        //my_tbody.deleteRow(my_tbody.rows.length - 1); // 하단부터 삭제
+      }
+    </script>
+  </body>
+</html>
